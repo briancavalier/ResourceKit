@@ -1,5 +1,7 @@
 /*
 	Header: ResourceKit
+	ResourceKit provides an Active Record pattern in Javascript for
+	accessing resources from various
 */
 (function(window, undefined) {
 	/*
@@ -34,7 +36,9 @@
 			} else if (isFunction(endpoint)) {
 				this.factory = endpoint;
 			} else {
-				this.factory = function() { return endpoint; };
+				this.factory = function(name, args) {
+					return new jsonTransport(endpoint[name], args);
+				};
 			}
 			
 			return this;
@@ -104,7 +108,7 @@
 		},
 
 		update: function(item, args) {
-			this.transport.create(item, args);
+			this.transport.update(item, args);
 		},
 
 		remove: function(item, args) {
@@ -117,9 +121,6 @@
 		A transport that uses XHR to move data over HTTP
 	*/
 	var XhrTransport = function(url, args) {
-		this.url = url;
-		this.args = args;
-		
 		var handlers = {
 			json: {
 				serialize: function(data) {
@@ -131,32 +132,62 @@
 				}
 			}
 		};
+		
+		handlers._default = handlers.json;
 
+		function list(args) {
+			query(null, args);
+		}
+		
+		function get(id, args) {
+			execute("GET", buildFullUrl(url, id), null, args);
+		}
+
+		function query(query, args) {
+			var f = function(xhr) {
+				var start = args.start || 0;
+				xhr.setRequestHeader("Range", "" + start + "-" + (start + args.count - 1));
+			};
+			execute("GET", buildFullUrl(url, null, query), null, args, args.count ? f : null);
+		}
+		
+		function create(item, args) {
+			execute("POST", url, item, args);
+		}
+		
+		function update(item, args) {
+			execute("PUT", buildFullUrl(url, item.id), item, args);
+		}
+		
+		function remove(item, args) {
+			execute("DELETE", buildFullUrl(url, item.id), null, args);
+		}
+		
 		/* Group: XHR Helpers */
 		/*
-			Function: doResource
-			Initiates a resource operation
+			Function: execute
+			Executes a resource operation over XHR
 
 			Parameters:
-				resource - the <Resource> for which the request is to be made
 				method - the HTTP method to use
 				url - URL to which to make the request
 				data - data to send in XHR request
+				configurexhr - callback to which the XMLHttpRequest object will be passed for additional configuration
 				args - additional arguments
 		*/
-		function doResource(method, url, data, args, setup) {
-			xhr(method, url, prepareData(data), setup
-				,function(xhr) { xhrSuccess(xhr, (args) ? args.load : null); }
-				,function(xhr) { xhrError(xhr, (args) ? args.error : null); }
+		function execute(method, url, data, args, configurexhr) {
+			send(method, url, provide(data), configurexhr, args || {}
+				,function(xhr, args) { success(xhr, (args) ? args.load : null); }
+				,function(xhr, args) { error(xhr, (args) ? args.error : null); }
 			);
 		}
 
-		function prepareData(data) {
-			return data == null || data == undefined ? null : handlers.json.serialize(data);
+		function provide(data) {
+			return function() { handlers._default.serialize(data); };
 		}
 
 		/*
-			Function: xhr
+			Function: send
 			Creates, opens, and sends an XHR request to the supplied url, using the supplied method and data
 			and sets success to be invoked in the XHR succeeds, and error in any other case.
 
@@ -168,9 +199,8 @@
 				success - callback to be invoked if XHR succeeds
 				error - callback to be invoked if XHR encounters an error
 		*/
-		function xhr(method, url, data, configurexhr, success, error) {
-			var xhr = null;
-			try{ xhr = new XMLHttpRequest(); }catch(e0){
+		function send(method, url, data, configurexhr, args, success, error) {
+			try{ var xhr = new XMLHttpRequest(); }catch(e0){
 			try{ xhr = new ActiveXObject('Msxml2.XMLHTTP'); }catch(e1){
 			try{ xhr = new ActiveXObject('Microsoft.XMLHTTP'); }catch(e2){
 			try{ xhr = new ActiveXObject('Msxml2.XMLHTTP.4.0'); }catch(e3){}}}}
@@ -179,37 +209,42 @@
 			xhr.setRequestHeader("Accept", "application/json");
 			if(data) xhr.setRequestHeader("Content-Type", "application/json");
 
-			if(configurexhr) configurexhr(xhr);
+			if(configurexhr) configurexhr(xhr, args);
 
+			var timeout = setTimeout(function() {
+				xhr.abort();
+			}, args.timeout || 60000);
+			
 			xhr.onreadystatechange = function() {
-				handlexhr(xhr, success, error);
+				handle(xhr, timeout, success, error);
 			};
 
-			xhr.send(data);
+			xhr.send(data());
 		}
 
 		/*
-			Function: handlexhr
+			Function: handle
 
 			Parameters:
 				xhr - XMLHttpRequest object that was used to make the request
 				success - callback to invoke on success
 				error - callback to invoke on any error
 		*/
-		function handlexhr(xhr, success, error) {
+		function handle(xhr, timeout, success, error) {
 			if(xhr.readyState != 4) return;
+			clearTimeout(timeout);
 			(xhr.error ? error : success)(xhr);
 		}
 
 		/*
-			Function: xhrSuccess
+			Function: success
 			Handles a successful XHR request, parses results, and feeds them to the supplied callback
 
 			Parameters:
 				xhr - XMLHttpRequest object that was used to make the request
 				callback - callback to invoke for each parsed resource
 		*/
-		function xhrSuccess(xhr, callback) {
+		function success(xhr, callback) {
 			var js = handlers.json.deserialize(xhr);
 			if(callback) {
 				if(isArray(js)) {
@@ -223,47 +258,96 @@
 		}
 
 		/*
-			Function: xhrError
+			Function: error
 			Handles XHR errors.  Currently, this is a passthrough to callback.
 
 			Parameters:
 				xhr - XMLHttpRequest object that was used to make the request
 				callback - callback to invoke
 		*/
-		function xhrError(xhr, callback) {
+		function error(xhr, callback) {
 			if(callback) callback(xhr);
 		}
 		
-		function list(args) {
-			query(null, args);
+		return {
+			list: list
+			,get: get
+			,query: query
+			,create: create
+			,update: update
+			,remove: remove
+		};
+	};
+	
+	/*
+		Class: jsonTransport
+		A transport that uses the supplied json as an in-memory data model, which is queried
+		and modified directly.
+	*/
+	var jsonTransport = function(json, args) {
+		var data = {};
+		var nextid = 1;
+		for(var i=0; i<json.length; i++) {
+			var item = json[i]
+				,max = 1
+				;
+			if(item.id) {
+				if(item.id > max) max = item.id;
+				data[item.id] = i;
+			}
+			
+			nextid = max+1;
 		}
-		
+
+		function list(args) {
+			if(!args.load) throw "args must have a load handler function";
+			
+			var start = (args.start || 0);
+			var end = json.length;
+			if(args.hasOwnProperty("count")) {
+				var e = start + args.count;
+				if(e < json.length) end = e;
+			}
+			for(var i=start; i<end; i++) {
+				args.load(json[i]);
+			}
+		}
+
 		function get(id, args) {
-			doResource("GET", buildFullUrl(url, id), null, args);
+			if(!args.load) throw "args must have a load handler function";
+			
+			var item = json[data[id]];
+			(item ? args.load(item) : args.error());
 		}
 
 		function query(query, args) {
-			doResource("GET", buildFullUrl(url, null, query), null, args,
-				function(xhr) {
-					if(args.count) {
-						var start = args.start || 0;
-						xhr.setRequestHeader("Range", "" + start + "-" + (start + args.count - 1));
-					}
-				});
+			// TODO: Implement simple querying
 		}
-		
+
 		function create(item, args) {
-			doResource("POST", url, item, args);
+			if(item.id) throw "item already has an id";
+			
+			item.id = nextid++;
+			data[item.id] = json.push(item) - 1;
+			if(args && args.load) args.load(item);
 		}
-		
+
 		function update(item, args) {
-			doResource("PUT", buildFullUrl(url, item.id), item, args);
+			if(item.id) {
+				// TODO: Should merge item properties into existing
+				var i = data[item.id];
+				if(i) {
+					json[i] = item;
+					if(args && args.load) args.load(item);
+				} else {
+					if(args && args.error) args.error(item);
+				}
+			}
 		}
-		
+
 		function remove(item, args) {
-			doResource("DELETE", buildFullUrl(url, item.id), null, args);
 		}
-		
+
 		return {
 			list: list
 			,get: get

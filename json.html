@@ -1,0 +1,46 @@
+<!DOCTYPE HTML>
+<html lang="ru-RU">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+	<script src="js/ResourceKit.js" type="text/javascript" charset="utf-8"></script>
+	<script type="text/javascript">
+		window.onload = function() {
+			var args = { load: function(item) { console.log(item); }, error: function(o) { alert(o); }};
+			var r1 = ResourceKit({
+				things: [
+					{id: 1,name: "Thing1"},
+					{id: 2,name: "Thing2"}
+				],
+				people: [
+					{id: 1,name: "Bob"},
+					{id: 2,name: "Jim"}
+				]
+			});
+			var things = r1.resource("things");
+			things.list(args);
+			things.list({load: args.load, error: args.error, start: 1, count: 10});
+			things.get(1, args);
+			
+			var people = r1.resource("people");
+			people.list(args);
+			people.get(2, args);
+			
+			var thing3 = {name: "Thing3"};
+			things.create(thing3, {
+				load: function(item) {
+					thing3 = item;
+					console.log(thing3);
+				}
+			});
+			things.get(3, args);
+			
+			thing3.name = "Thing3 updated";
+			things.update(thing3, args);
+		};
+	</script>
+</head>
+<body>
+	<pre><code id="result"></code></pre>
+</body>
+</html>
