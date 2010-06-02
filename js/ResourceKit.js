@@ -37,7 +37,7 @@
 				this.factory = endpoint;
 			} else {
 				this.factory = function(name, args) {
-					return new jsonTransport(endpoint[name], args);
+					return new jsonTransport((name) ? endpoint[name] : endpoint, args);
 				};
 			}
 			
@@ -85,7 +85,7 @@
 
 			Parameters:
 				id - the id of the resource to get
-				args - arguments			
+				args -			
 		*/
 		get: function(id, args) {
 			this.transport.get(id, args);
@@ -97,20 +97,42 @@
 
 			Parameters:
 				query - Object containing key value pairs to be used as the query
-				args - arguments			
+				args -			
 		*/
 		query: function(query, args) {
 			this.transport.query(query, args);
 		},
 
+		/*
+			Function: create
+			Creates a new item using the item data supplied, which should not have an id field.  If item
+			does have an id field, an error will be generated
+			
+			Parameters:
+				item - New item to create.  Must not have an id.
+				args -
+		*/
 		create: function(item, args) {
 			this.transport.create(item, args);
 		},
 
+		/*
+			Function: update
+			Updates an existing item with data in the supplied item, which must have an id to match with
+			the existing item.
+			
+			Parameters:
+				item - Item data, including an id, to update.
+				args -
+		*/
 		update: function(item, args) {
 			this.transport.update(item, args);
 		},
 
+		/*
+			Function: remove
+			Removes (deletes) the existing item whose id is item.id
+		*/
 		remove: function(item, args) {
 			this.transport.remove(item, args);
 		}
@@ -325,7 +347,7 @@
 		}
 
 		function create(item, args) {
-			if(item.id) throw "item already has an id";
+			if(item.id) throw "new item must not have an id";
 			
 			item.id = nextid++;
 			data[item.id] = json.push(item) - 1;
