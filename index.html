@@ -6,17 +6,27 @@
 	<script src="js/ResourceKit.js" type="text/javascript" charset="utf-8"></script>
 	<script type="text/javascript">
 		window.onload = function() {
-			var e = ResourceKit.on("data");
-			var things = e.resource("things");
-			console.log(things);
+			var r1 = ResourceKit("data1");
+			var things = r1.resource("things");
+			var people = r1.resource("people");
 			// var things = ResourceKit.resource("data/things");
 			things.get(1, {load: function(item) { console.log(item); }});
-			things.get(2, {load: function(item) { console.log(item); }});
+			people.get(2, {load: function(item) { console.log(item); }});
 			things.list({load: function(item) {console.log(item); }, count: 10});
+			people.list({load: function(item) {console.log(item); }, count: 10});
 			things.query({ foo: ["bar", "baz"], id: 1}, {load: function(item) {console.log(item); }, start: 10, count: 10 });
-			things.create({ name: "Bill"});
-			things.update({ id: 1, name: "Bill"});
+			people.query({ foo: ["bar", "baz"], id: 1}, {load: function(item) {console.log(item); }, start: 10, count: 10 });
+			things.create({ name: "Blah"});
+			people.create({ name: "Bill"});
+			things.update({ id: 1, name: "Blah"});
+			people.update({ id: 1, name: "Bill"});
 			things.remove({ id: 1 });
+			people.remove({ id: 1 });
+			
+			var r2 = ResourceKit("data2");
+			var things2 = r2.resource("things");
+			things2.get(1, {load: function(item) { console.log(item); }});
+			things.get(1, {load: function(item) { console.log(item); }});
 		};
 	</script>
 </head>

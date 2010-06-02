@@ -1,7 +1,60 @@
 /*
 	Header: ResourceKit
 */
-ResourceKit = (function(){	
+(function(window, undefined) {
+	/*
+		Class: ResourceKit
+	*/
+	/*
+		Constructor: ResourceKit
+		Creates a new ResourceKit for the supplied endpoint
+		
+		Parameters:
+			endpoint -
+			args -
+			
+		Returns:
+			a new <ResourceKit>
+	*/
+	var ResourceKit = function(endpoint, args) {
+		return new ResourceKit.prototype._init(endpoint, args);
+	};
+	
+	ResourceKit.prototype = {
+		/*
+			Function: _init
+			Private constructor that creates a new ResourceKit.  You should call
+			<ResouceKit> instead.
+		*/
+		_init: function(endpoint, args) {
+			if(isString(endpoint)) {
+				this.factory = function(name, args) {
+					return new XhrTransport(buildFullUrl(endpoint, name), args);
+				};
+			} else if (isFunction(endpoint)) {
+				this.factory = endpoint;
+			} else {
+				this.factory = function() { return endpoint; };
+			}
+			
+			return this;
+		},
+		
+		/*
+			Function: resource
+			Creates a new <Resource> of the specified name from this <ResourceKit>
+			
+			Parameters:
+				name - the name of the <Resource>
+				args -
+		*/
+		resource: function(name, args) {
+			return new Resource(this.factory(name, args));
+		}
+	};
+	
+	ResourceKit.prototype._init.prototype = ResourceKit.prototype;
+	
 	/*
 		Class: Resource
 		Represents a group of resources at the specified URL
@@ -9,79 +62,56 @@ ResourceKit = (function(){
 	var Resource = function(transport) {
 		this.transport = transport;
 	};
-
-	/*
-		Function: list
-		Lists all resources
-
-		Parameters:
-			args - arguments			
-	*/
-	Resource.prototype.list = function(args) {
-		this.transport.list(args);
-	};
 	
-	/*
-		Function: get
-		Gets a resource by id
+	Resource.prototype = {
+		/*
+			Function: list
+			Lists all resources
 
-		Parameters:
-			id - the id of the resource to get
-			args - arguments			
-	*/
-	Resource.prototype.get = function(id, args) {
-		this.transport.get(id, args);
-	};
-	
-	/*
-		Function: query
-		Queries for matching resources
+			Parameters:
+				args - arguments			
+		*/
+		list: function(args) {
+			this.transport.list(args);
+		},
+		
+		/*
+			Function: get
+			Gets a resource by id
 
-		Parameters:
-			query - Object containing key value pairs to be used as the query
-			args - arguments			
-	*/
-	Resource.prototype.query = function(query, args) {
-		this.transport.query(query, args);
-	};
-	
-	Resource.prototype.create = function(item, args) {
-		this.transport.create(item, args);
-	};
+			Parameters:
+				id - the id of the resource to get
+				args - arguments			
+		*/
+		get: function(id, args) {
+			this.transport.get(id, args);
+		},
 
-	Resource.prototype.update = function(item, args) {
-		this.transport.create(item, args);
-	};
+		/*
+			Function: query
+			Queries for matching resources
 
-	Resource.prototype.remove = function(item, args) {
-		this.transport.remove(item, args);
-	};
-	
-	/*
-		Class: Endpoint
-	*/
-	var Endpoint = function(transportFactory) {
-		this.factory = transportFactory;
-	};
-	
-	Endpoint.prototype.resource = function(name, args) {
-		return new Resource(this.factory(name, args));
-	};
-	
-	function on(endpoint, args) {
-		var e;
-		if(isString(endpoint)) {
-			e = new Endpoint(function(name, args) {
-				return new XhrTransport(buildFullUrl(endpoint, name), args);
-			});
-		} else if (isFunction(endpoint)) {
-			e = new Endpoint(endpoint);
-		} else {
-			e = new Endpoint(function() { return endpoint; });
+			Parameters:
+				query - Object containing key value pairs to be used as the query
+				args - arguments			
+		*/
+		query: function(query, args) {
+			this.transport.query(query, args);
+		},
+
+		create: function(item, args) {
+			this.transport.create(item, args);
+		},
+
+		update: function(item, args) {
+			this.transport.create(item, args);
+		},
+
+		remove: function(item, args) {
+			this.transport.remove(item, args);
 		}
-		return e;
-	}
-	
+	};
+		
 	/*
 		Class: XhrTransport
 		A transport that uses XHR to move data over HTTP
@@ -122,7 +152,7 @@ ResourceKit = (function(){
 		}
 
 		function prepareData(data) {
-			return data == null || data == "undefined" ? null : handlers.json.serialize(data);
+			return data == null || data == undefined ? null : handlers.json.serialize(data);
 		}
 
 		/*
@@ -329,7 +359,6 @@ ResourceKit = (function(){
 		return Object.prototype.toString(obj) === "[object Function]";
 	}
 	
-	return {
-		on: on
-	};
-})();
+	window.ResourceKit = ResourceKit;
+	
+})(window);
