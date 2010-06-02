@@ -1,0 +1,26 @@
+<!DOCTYPE HTML>
+<html lang="ru-RU">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+	<script src="js/ResourceKit.js" type="text/javascript" charset="utf-8"></script>
+	<script type="text/javascript">
+		window.onload = function() {
+			var e = ResourceKit.on("data");
+			var things = e.resource("things");
+			console.log(things);
+			// var things = ResourceKit.resource("data/things");
+			things.get(1, {load: function(item) { console.log(item); }});
+			things.get(2, {load: function(item) { console.log(item); }});
+			things.list({load: function(item) {console.log(item); }, count: 10});
+			things.query({ foo: ["bar", "baz"], id: 1}, {load: function(item) {console.log(item); }, start: 10, count: 10 });
+			things.create({ name: "Bill"});
+			things.update({ id: 1, name: "Bill"});
+			things.remove({ id: 1 });
+		};
+	</script>
+</head>
+<body>
+	<pre><code id="result"></code></pre>
+</body>
+</html>
