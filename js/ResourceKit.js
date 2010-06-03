@@ -22,6 +22,11 @@
 		return new ResourceKit.prototype._init(endpoint, args);
 	};
 	
+	ResourceKit.mixin      = mixin;
+	ResourceKit.isString   = isString;
+	ResourceKit.isArray    = isArray;
+	ResourceKit.isFunction = isFunction;
+	
 	ResourceKit.prototype = {
 		/*
 			Function: _init
@@ -65,6 +70,20 @@
 	*/
 	var Resource = function(transport) {
 		this.transport = transport;
+		
+		this.wrapargs = function(args, resource) {
+			var a = mixin(args, { _resource: resource });
+			var orig = a.load;
+			a.load = function(item) {
+				item._resource = resource;
+				item.save = function(args) {
+					resource.update(item, args);
+				};
+				if(orig) orig.call(args, item);
+			};
+			
+			return a;
+		};
 	};
 	
 	Resource.prototype = {
@@ -88,7 +107,7 @@
 				args -			
 		*/
 		get: function(id, args) {
-			this.transport.get(id, args);
+			this.transport.get(id, this.wrapargs(args, this));
 		},
 
 		/*
@@ -443,12 +462,25 @@
 	}
 	
 	/* Group: Utility Helpers */
+	function mixin(a, b) {
+		if(!b) return a;
+		
+		if(!a) a = {};
+		
+		for(var k in b) {
+			if(k) {
+				a[k] = b[k];
+			}
+		}
+		return a;
+	}
+	
 	/*
 		Function: isArray
 		Determines if obj is an Array
 
 		Parameters:
-			obj - determine whether this obj is an Array or not
+			obj - determine whether this obj is an Array
 			
 		Returns:
 			true iff obj is strictly a Javascript Array
@@ -457,10 +489,30 @@
 		return obj && (obj instanceof Array || typeof obj == "array"); // Boolean
 	}
 	
+	/*
+		Function: isString
+		Determines if obj is a String
+		
+		Parameters:
+			obj - determine whether this obj is a String
+			
+		Returns:
+			true iff obj is strictly a Javascript String
+	*/
 	function isString(obj) {
 		return (typeof obj == "string" || obj instanceof String); // Boolean
 	}
 	
+	/*
+		Function: isFunction
+		Determines if obj is a Function
+		
+		Parameters:
+			obj - determine whether this obj is a Function
+			
+		Returns:
+			true iff obj is strictly a Javascript Function
+	*/
 	function isFunction(obj) {
 		return Object.prototype.toString(obj) === "[object Function]";
 	}

@@ -34,8 +34,10 @@
 				}
 			});
 			things.get(3, args);
+			thing3.name = "Thing3 updated1";
+			thing3.save(args);
 			
-			thing3.name = "Thing3 updated";
+			thing3.name = "Thing3 updated2";
 			things.update(thing3, args);
 		};
 	</script>
