@@ -6,7 +6,7 @@
 	<script src="js/ResourceKit.js" type="text/javascript" charset="utf-8"></script>
 	<script type="text/javascript">
 		window.onload = function() {
-			var args = { load: function(item) { console.log(item); }, error: function(o) { alert(o); }};
+			var args = { load: function(item) { if(item.name) console.log(item.name); }, error: function(o) { alert(o); }};
 			var r1 = ResourceKit({
 				things: [
 					{id: 1,name: "Thing1"},
@@ -30,15 +30,19 @@
 			things.create(thing3, {
 				load: function(item) {
 					thing3 = item;
-					console.log(thing3);
+					console.log(thing3.name);
 				}
 			});
 			things.get(3, args);
 			thing3.name = "Thing3 updated1";
 			thing3.save(args);
 			
-			thing3.name = "Thing3 updated2";
-			things.update(thing3, args);
+			things.update({ id: 3, name: "Thing3 updated2" }, args);
+			console.log(thing3.name);
+			thing3.load(args);
+			console.log(thing3.name);
+			
+			thing3.remove(args);
 		};
 	</script>
 </head>

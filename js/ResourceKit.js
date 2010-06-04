@@ -65,21 +65,55 @@
 	ResourceKit.prototype._init.prototype = ResourceKit.prototype;
 	
 	/*
+		Class: ActiveResource
+		A wrapper for data items that provides Active Record style save, load, and remove methods on the
+		items themselves.
+	*/
+	var ActiveResource = function(item, resource) {
+		this._resource = resource;
+		mixin(this, item);
+	};
+	
+	ActiveResource.prototype = {
+		// Add a save method that will save (update) this item in resource storage
+		save: function(localArgs) {
+			this._resource.update(this, localArgs);
+		},
+		
+		// Add a load method that will internally reload the item's data from resource storage
+		load: function(localArgs) {
+			var orig = localArgs ? localArgs.load : null
+				,self = this;
+			localArgs.load = function(updated) {
+				mixin(self, updated);
+				if(orig) orig.call(localArgs, self);
+			};
+			this._resource.get(this.id, localArgs);
+		},
+		
+		// Add a remove method that will remove this item from resource storage
+		remove: function(localArgs) {
+			this._resource.remove(this, localArgs);
+		}		
+	};
+	
+	/*
 		Class: Resource
 		Represents a group of resources at the specified URL
 	*/
 	var Resource = function(transport) {
 		this.transport = transport;
 		
-		this.wrapargs = function(args, resource) {
+		this.makeActive = function(args) {
+			var resource = this;
 			var a = mixin(args, { _resource: resource });
+			
+			// Save the original load callback so we can call it later
 			var orig = a.load;
+						
+			// Augment returned items with active-record style save and load methods
 			a.load = function(item) {
-				item._resource = resource;
-				item.save = function(args) {
-					resource.update(item, args);
-				};
-				if(orig) orig.call(args, item);
+				if(orig) orig.call(args, new ActiveResource(item, resource));
 			};
 			
 			return a;
@@ -95,7 +129,7 @@
 				args - arguments			
 		*/
 		list: function(args) {
-			this.transport.list(args);
+			this.transport.list(this.makeActive(args));
 		},
 		
 		/*
@@ -107,7 +141,7 @@
 				args -			
 		*/
 		get: function(id, args) {
-			this.transport.get(id, this.wrapargs(args, this));
+			this.transport.get(id, this.makeActive(args));
 		},
 
 		/*
@@ -119,7 +153,7 @@
 				args -			
 		*/
 		query: function(query, args) {
-			this.transport.query(query, args);
+			this.transport.query(query, this.makeActive(args));
 		},
 
 		/*
@@ -132,7 +166,7 @@
 				args -
 		*/
 		create: function(item, args) {
-			this.transport.create(item, args);
+			this.transport.create(item, this.makeActive(args));
 		},
 
 		/*
@@ -377,7 +411,7 @@
 			if(item.id) {
 				// TODO: Should merge item properties into existing
 				var i = data[item.id];
-				if(i) {
+				if(i != null && i != undefined) {
 					json[i] = item;
 					if(args && args.load) args.load(item);
 				} else {
@@ -387,6 +421,15 @@
 		}
 
 		function remove(item, args) {
+			if(item.id) {
+				var i = data[item.id];
+				if(i != null && i != undefined) {
+					delete json[i];
+					if(args && args.load) args.load(null);					
+				} else {
+					if(args && args.error) args.error(item);					
+				}
+			}
 		}
 
 		return {
